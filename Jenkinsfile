@@ -1,63 +1,95 @@
 pipeline {
     agent any
-    tools{
-        jdk  'jdk11'
-        maven  'maven3'
+    tools {
+        maven 'maven3'
+        jdk 'jdk17'
     }
     
-    environment{
+    environment {
         SCANNER_HOME= tool 'sonar-scanner'
     }
-    
     stages {
         stage('Git Checkout') {
             steps {
-                git branch: 'main', changelog: false, credentialsId: '15fb69c3-3460-4d51-bd07-2b0545fa5151', poll: false, url: 'https://github.com/jaiswaladi246/Shopping-Cart.git'
+                git branch: 'main', url: 'https://github.com/shrikantdandge665/Ekart.git'
             }
         }
         
-        stage('COMPILE') {
+        stage('Compile') {
             steps {
-                sh "mvn clean compile -DskipTests=true"
+                sh "mvn compile"
             }
         }
         
-        stage('OWASP Scan') {
+        stage('Unit Test') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./ ', odcInstallation: 'DP'
+                sh "mvn test -DskipTests=true"
+            }
+        }
+        
+        stage('Sonarqube Analysis') {
+            steps {
+                withSonarQubeEnv('sonar') {
+                 sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=EKART -Dsonar.projectName=Ekart \
+                 -Dsonar.java.binaries=. '''
+              }
+            }
+        }
+        
+        stage('OWASP depency check') {
+            steps {
+                dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'dc'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-            }
-        }
-        
-        stage('Sonarqube') {
-            steps {
-                withSonarQubeEnv('sonar-server'){
-                   sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Shopping-Cart \
-                   -Dsonar.java.binaries=. \
-                   -Dsonar.projectKey=Shopping-Cart '''
-               }
             }
         }
         
         stage('Build') {
             steps {
-                sh "mvn clean package -DskipTests=true"
+                sh "mvn package -DskipTests=true"
             }
         }
         
-        stage('Docker Build & Push') {
+        stage('Deploy to nexus') {
             steps {
-                script{
-                    withDockerRegistry(credentialsId: '2fe19d8a-3d12-4b82-ba20-9d22e6bf1672', toolName: 'docker') {
-                        
-                        sh "docker build -t shopping-cart -f docker/Dockerfile ."
-                        sh "docker tag  shopping-cart adijaiswal/shopping-cart:latest"
-                        sh "docker push adijaiswal/shopping-cart:latest"
-                    }
+                withMaven(globalMavenSettingsConfig: 'global-maven', jdk: 'jdk17', maven: 'maven3', mavenSettingsConfig: '', traceability: true) {
+                    sh "mvn deploy  -DskipTests=true"
                 }
             }
         }
         
+        stage('Build &tag') {
+            steps {
+                script {
+                withDockerRegistry(credentialsId: 'docker-cred') {
+                    sh "docker build -t shrikantdandge7/ekart:latest -f docker/Dockerfile ."
+                  }
+                }
+            }
+        }
         
+        stage('trivy scan') {
+            steps {
+                sh "trivy image shrikantdandge7/ekart:latest > trivy-report.txt"
+            }
+        }
+        
+        stage('Docker image push') {
+            steps {
+                script {
+                withDockerRegistry(credentialsId: 'docker-cred') {
+                    sh "docker push shrikantdandge7/ekart:latest"
+                  }
+                }
+            }
+        }
+        
+        stage('Kubernets deploy') {
+            steps {
+                withKubeCredentials(kubectlCredentials: [[caCertificate: '', clusterName: '', contextName: '', credentialsId: 'k8-token', namespace: 'webapps', serverUrl: 'https://172.31.59.35:6443']]) {
+                     sh "kubectl apply -f deploymentservice.yml"
+                     sh "kubectl get svc -n webapps"
+                }
+            }
+        }
     }
 }
