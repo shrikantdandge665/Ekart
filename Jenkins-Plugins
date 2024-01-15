@@ -12,3 +12,4 @@ Kubernetes Client API Plugin
 Eclipse Temurin installer Plugin
 Docker plugin
 Docker Pipeline
+Config File Provider Plugin
