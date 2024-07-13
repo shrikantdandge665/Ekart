@@ -40,3 +40,22 @@ sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.25.1/manifests/calico.yaml 
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v0.49.0/deploy/static/provider/baremetal/deploy.yaml
+
+
+
+
+
+k8s-deploy:
+  stage: deploy
+  variables:
+     KUBECONFIG_PATH: /home/ubuntu/.kube/config
+  before_script:
+     - sudo mkdir -p $(dirname "$KUBECONFIG_PATH")
+     - echo "$KUBECONFIG_CONTENT" | base64 -d > "$KUBECONFIG_PATH"
+     - export KUBECONFIG="$KUBECONFIG _PATH"
+  script:
+     - kubectl apply -f deployment-service.yaml
+  tags:
+     - self-hosted
+  only:
+     - main
