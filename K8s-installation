@@ -1,3 +1,9 @@
+--- KUBERNETES ---
+
+# Step1:
+
+#On Master and Worker 
+
 sudo apt-get update -y
 sudo apt-get install docker.io -y
 sudo chmod 666 /var/run/docker.sock
@@ -10,13 +16,11 @@ echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.
 
 sudo apt-get update
 sudo apt install kubeadm=1.30.0-1.1 kubectl=1.30.0-1.1 kubelet=1.30.0-1.1 -y
-
-
 # Step2:
 
 #On Master node:
 
-   kubeadm init --pod-network-cidr=192.168.0.0/16
+  sudo kubeadm init --pod-network-cidr=10.224.0.0/16
   
 
    
